@@ -44,6 +44,10 @@
 
 #define FreeRTOS_STRUCT(int_type, ptr_type, list_prev_offset)
 
+/* FIXME: none of the _width parameters are actually observed properly!
+ * you WILL need to edit more if you actually attempt to target a 8/16/64
+ * bit target!
+ */
 
 struct FreeRTOS_params {
 	const char *target_name;
@@ -479,7 +483,6 @@ static threadid_t FreeRTOS_smp_get_current_thread(struct rtos *rtos)
 
 static int FreeRTOS_update_threads(struct rtos *rtos)
 {
-	int i = 0;
 	int retval;
 	uint32_t tasks_found = 0;
 	struct FreeRTOS_data *rtos_data;
@@ -611,22 +614,22 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		return retval;
 	LOG_DEBUG("Read uxTopUsedPriority at 0x%" PRIx64 ", value %" PRId64,
 										rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
-										max_used_priority);
-	if (max_used_priority > FREERTOS_MAX_PRIORITIES) {
-		LOG_ERROR("FreeRTOS maximum used priority is unreasonably big, not proceeding: %" PRId64 "",
-			max_used_priority);
+										top_used_priority);
+	if (top_used_priority > FREERTOS_MAX_PRIORITIES) {
+		LOG_ERROR("FreeRTOS top used priority is unreasonably big, not proceeding: %" PRIu32,
+			top_used_priority);
 		return ERROR_FAIL;
 	}
 
 	symbol_address_t *list_of_lists = malloc(sizeof(symbol_address_t) *
 											(max_used_priority+1+5));
 	if (!list_of_lists) {
-		LOG_ERROR("Error allocating memory for %" PRId64 " priorities", max_used_priority);
+		LOG_ERROR("Error allocating memory for %u priorities", config_max_priorities);
 		return ERROR_FAIL;
 	}
 
-	int num_lists;
-	for (num_lists = 0; num_lists <= max_used_priority; num_lists++)
+	unsigned int num_lists;
+	for (num_lists = 0; num_lists < config_max_priorities; num_lists++)
 		list_of_lists[num_lists] = rtos->symbols[FreeRTOS_VAL_pxReadyTasksLists].address +
 			num_lists * rtos_data->params->list_width;
 
@@ -636,7 +639,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	list_of_lists[num_lists++] = rtos->symbols[FreeRTOS_VAL_xSuspendedTaskList].address;
 	list_of_lists[num_lists++] = rtos->symbols[FreeRTOS_VAL_xTasksWaitingTermination].address;
 
-	for (i = 0; i < num_lists; i++) {
+	for (unsigned int i = 0; i < num_lists; i++) {
 		if (list_of_lists[i] == 0)
 			continue;
 		/* Read the number of threads in this list */
@@ -700,8 +703,8 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 				return retval;
 			}
 			tmp_str[FREERTOS_THREAD_NAME_STR_SIZE-1] = '\x00';
-			LOG_DEBUG("FreeRTOS: Read Thread Name at 0x%" PRIx64 ", value \"%s\"",
-										rtos->thread_details[tasks_found].threadid + rtos_data->params->thread_name_offset,
+			LOG_DEBUG("FreeRTOS: Read Thread Name at 0x%" PRIx64 ", value '%s'",
+										rtos->thread_details[tasks_found].threadid + param->thread_name_offset,
 										tmp_str);
 
 			if (tmp_str[0] == '\x00')
@@ -864,7 +867,7 @@ static int FreeRTOS_get_thread_registers_from_stack(struct rtos *rtos, int64_t t
 	if (cm4_fpu_enabled == 1) {
 		/* Read the LR to decide between stacking with or without FPU */
 		uint32_t LR_svc = 0;
-		retval = target_read_buffer(rtos->target,
+		retval = target_read_u32(rtos->target,
 				stack_ptr + 0x20,
 				rtos_data->params->pointer_width,
 				(uint8_t *)&LR_svc);

@@ -122,7 +122,7 @@
 
 
 struct fespi_flash_bank {
-	int probed;
+	bool probed;
 	target_addr_t ctrl_base;
 	const struct flash_device *dev;
 };
@@ -136,8 +136,9 @@ struct fespi_target {
 /* TODO !!! What is the right naming convention here? */
 static const struct fespi_target target_devices[] = {
 	/* name,   tap_idcode, ctrl_base */
-	{ "Freedom E300 SPI Flash",  0x10e31913 , 0x10014000 },
-	{ NULL,    0,           0          }
+	{ "Freedom E310-G000 SPI Flash", 0x10e31913, 0x10014000 },
+	{ "Freedom E310-G002 SPI Flash", 0x20000913, 0x10014000 },
+	{ NULL, 0, 0 }
 };
 
 FLASH_BANK_COMMAND_HANDLER(fespi_flash_bank_command)
@@ -156,7 +157,7 @@ FLASH_BANK_COMMAND_HANDLER(fespi_flash_bank_command)
 	}
 
 	bank->driver_priv = fespi_info;
-	fespi_info->probed = 0;
+	fespi_info->probed = false;
 	fespi_info->ctrl_base = 0;
 	if (CMD_ARGC >= 7) {
 		COMMAND_PARSE_ADDRESS(CMD_ARGV[6], fespi_info->ctrl_base);
@@ -182,13 +183,13 @@ static int fespi_read_reg(struct flash_bank *bank, uint32_t *value, target_addr_
 }
 
 static int fespi_write_reg(struct flash_bank *bank, target_addr_t address, uint32_t value)
-{								\
+{
 	struct target *target = bank->target;
 	struct fespi_flash_bank *fespi_info = bank->driver_priv;
 
 	int result = target_write_u32(target, fespi_info->ctrl_base + address, value);
 	if (result != ERROR_OK) {
-		LOG_ERROR("fespi_write_reg() error writing 0x%x to " TARGET_ADDR_FMT,
+		LOG_ERROR("fespi_write_reg() error writing 0x%" PRIx32 " to " TARGET_ADDR_FMT,
 				value, fespi_info->ctrl_base + address);
 		return result;
 	}
@@ -273,7 +274,7 @@ static int fespi_rx(struct flash_bank *bank, uint8_t *out)
 			break;
 		int64_t now = timeval_ms();
 		if (now - start > 1000) {
-			LOG_ERROR("rxfifo didn't go positive (value=0x%x).", value);
+			LOG_ERROR("rxfifo didn't go positive (value=0x%" PRIx32 ").", value);
 			return ERROR_TARGET_TIMEOUT;
 		}
 	}
@@ -363,21 +364,21 @@ static int fespi_erase_sector(struct flash_bank *bank, int sector)
 	return ERROR_OK;
 }
 
-static int fespi_erase(struct flash_bank *bank, int first, int last)
+static int fespi_erase(struct flash_bank *bank, unsigned int first,
+		unsigned int last)
 {
 	struct target *target = bank->target;
 	struct fespi_flash_bank *fespi_info = bank->driver_priv;
 	int retval = ERROR_OK;
-	int sector;
 
-	LOG_DEBUG("%s: from sector %d to sector %d", __func__, first, last);
+	LOG_DEBUG("%s: from sector %u to sector %u", __func__, first, last);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_ERROR("Target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	if ((first < 0) || (last < first) || (last >= bank->num_sectors)) {
+	if ((last < first) || (last >= bank->num_sectors)) {
 		LOG_ERROR("Flash sector invalid");
 		return ERROR_FLASH_SECTOR_INVALID;
 	}
@@ -387,9 +388,9 @@ static int fespi_erase(struct flash_bank *bank, int first, int last)
 		return ERROR_FLASH_BANK_NOT_PROBED;
 	}
 
-	for (sector = first; sector <= last; sector++) {
+	for (unsigned int sector = first; sector <= last; sector++) {
 		if (bank->sectors[sector].is_protected) {
-			LOG_ERROR("Flash sector %d protected", sector);
+			LOG_ERROR("Flash sector %u protected", sector);
 			return ERROR_FAIL;
 		}
 	}
@@ -414,7 +415,7 @@ static int fespi_erase(struct flash_bank *bank, int first, int last)
 	if (retval != ERROR_OK)
 		goto done;
 
-	for (sector = first; sector <= last; sector++) {
+	for (unsigned int sector = first; sector <= last; sector++) {
 		retval = fespi_erase_sector(bank, sector);
 		if (retval != ERROR_OK)
 			goto done;
@@ -429,11 +430,9 @@ done:
 }
 
 static int fespi_protect(struct flash_bank *bank, int set,
-		int first, int last)
+		unsigned int first, unsigned int last)
 {
-	int sector;
-
-	for (sector = first; sector <= last; sector++)
+	for (unsigned int sector = first; sector <= last; sector++)
 		bank->sectors[sector].is_protected = set;
 	return ERROR_OK;
 }
@@ -443,6 +442,12 @@ static int slow_fespi_write_buffer(struct flash_bank *bank,
 {
 	struct fespi_flash_bank *fespi_info = bank->driver_priv;
 	uint32_t ii;
+
+	if (offset & 0xFF000000) {
+		LOG_ERROR("FESPI interface does not support greater than 3B addressing, can't write to offset 0x%" PRIx32,
+				offset);
+		return ERROR_FAIL;
+	}
 
 	/* TODO!!! assert that len < page size */
 
@@ -489,6 +494,245 @@ static const uint8_t riscv32_bin[] = {
 static const uint8_t riscv64_bin[] = {
 #include "../../../contrib/loaders/flash/fespi/riscv64_fespi.inc"
 };
+static struct algorithm_steps *as_new(void)
+{
+	struct algorithm_steps *as = calloc(1, sizeof(struct algorithm_steps));
+	as->size = 8;
+	as->steps = malloc(as->size * sizeof(as->steps[0]));
+	return as;
+}
+
+static struct algorithm_steps *as_delete(struct algorithm_steps *as)
+{
+	for (unsigned step = 0; step < as->used; step++) {
+		free(as->steps[step]);
+		as->steps[step] = NULL;
+	}
+	free(as->steps);
+	free(as);
+	return NULL;
+}
+
+static int as_empty(struct algorithm_steps *as)
+{
+	for (unsigned s = 0; s < as->used; s++) {
+		if (as->steps[s][0] != STEP_NOP)
+			return 0;
+	}
+	return 1;
+}
+
+/* Return size of compiled program. */
+static unsigned as_compile(struct algorithm_steps *as, uint8_t *target,
+		unsigned target_size)
+{
+	unsigned offset = 0;
+	bool finish_early = false;
+	for (unsigned s = 0; s < as->used && !finish_early; s++) {
+		unsigned bytes_left = target_size - offset;
+		switch (as->steps[s][0]) {
+			case STEP_NOP:
+				break;
+			case STEP_TX:
+				{
+					unsigned size = as->steps[s][1];
+					if (size + 3 > bytes_left) {
+						finish_early = true;
+						break;
+					}
+					memcpy(target + offset, as->steps[s], size + 2);
+					offset += size + 2;
+					break;
+				}
+			case STEP_WRITE_REG:
+				if (4 > bytes_left) {
+					finish_early = true;
+					break;
+				}
+				memcpy(target + offset, as->steps[s], 3);
+				offset += 3;
+				break;
+			case STEP_SET_DIR:
+				if (3 > bytes_left) {
+					finish_early = true;
+					break;
+				}
+				memcpy(target + offset, as->steps[s], 2);
+				offset += 2;
+				break;
+			case STEP_TXWM_WAIT:
+			case STEP_WIP_WAIT:
+				if (2 > bytes_left) {
+					finish_early = true;
+					break;
+				}
+				memcpy(target + offset, as->steps[s], 1);
+				offset += 1;
+				break;
+			default:
+				assert(0);
+		}
+		if (!finish_early)
+			as->steps[s][0] = STEP_NOP;
+	}
+	assert(offset + 1 <= target_size);
+	target[offset++] = STEP_EXIT;
+
+	LOG_DEBUG("%d-byte program:", offset);
+	for (unsigned i = 0; i < offset;) {
+		char buf[80];
+		for (unsigned x = 0; i < offset && x < 16; x++, i++)
+			sprintf(buf + x*3, "%02x ", target[i]);
+		LOG_DEBUG("%s", buf);
+	}
+
+	return offset;
+}
+
+static void as_add_step(struct algorithm_steps *as, uint8_t *step)
+{
+	if (as->used == as->size) {
+		as->size *= 2;
+		as->steps = realloc(as->steps, sizeof(as->steps[0]) * as->size);
+		LOG_DEBUG("Increased size to 0x%x", as->size);
+	}
+	as->steps[as->used] = step;
+	as->used++;
+}
+
+static void as_add_tx(struct algorithm_steps *as, unsigned count, const uint8_t *data)
+{
+	LOG_DEBUG("count=%d", count);
+	while (count > 0) {
+		unsigned step_count = MIN(count, 255);
+		uint8_t *step = malloc(step_count + 2);
+		step[0] = STEP_TX;
+		step[1] = step_count;
+		memcpy(step + 2, data, step_count);
+		as_add_step(as, step);
+		data += step_count;
+		count -= step_count;
+	}
+}
+
+static void as_add_tx1(struct algorithm_steps *as, uint8_t byte)
+{
+	uint8_t data[1];
+	data[0] = byte;
+	as_add_tx(as, 1, data);
+}
+
+static void as_add_write_reg(struct algorithm_steps *as, uint8_t offset, uint8_t data)
+{
+	uint8_t *step = malloc(3);
+	step[0] = STEP_WRITE_REG;
+	step[1] = offset;
+	step[2] = data;
+	as_add_step(as, step);
+}
+
+static void as_add_txwm_wait(struct algorithm_steps *as)
+{
+	uint8_t *step = malloc(1);
+	step[0] = STEP_TXWM_WAIT;
+	as_add_step(as, step);
+}
+
+static void as_add_wip_wait(struct algorithm_steps *as)
+{
+	uint8_t *step = malloc(1);
+	step[0] = STEP_WIP_WAIT;
+	as_add_step(as, step);
+}
+
+static void as_add_set_dir(struct algorithm_steps *as, bool dir)
+{
+	uint8_t *step = malloc(2);
+	step[0] = STEP_SET_DIR;
+	step[1] = FESPI_FMT_DIR(dir);
+	as_add_step(as, step);
+}
+
+/* This should write something less than or equal to a page.*/
+static int steps_add_buffer_write(struct algorithm_steps *as,
+		const uint8_t *buffer, uint32_t chip_offset, uint32_t len)
+{
+	if (chip_offset & 0xFF000000) {
+		LOG_ERROR("FESPI interface does not support greater than 3B addressing, can't write to offset 0x%" PRIx32,
+				chip_offset);
+		return ERROR_FAIL;
+	}
+
+	as_add_tx1(as, SPIFLASH_WRITE_ENABLE);
+	as_add_txwm_wait(as);
+	as_add_write_reg(as, FESPI_REG_CSMODE, FESPI_CSMODE_HOLD);
+
+	uint8_t setup[] = {
+		SPIFLASH_PAGE_PROGRAM,
+		chip_offset >> 16,
+		chip_offset >> 8,
+		chip_offset,
+	};
+	as_add_tx(as, sizeof(setup), setup);
+
+	as_add_tx(as, len, buffer);
+	as_add_txwm_wait(as);
+	as_add_write_reg(as, FESPI_REG_CSMODE, FESPI_CSMODE_AUTO);
+
+	/* fespi_wip() */
+	as_add_set_dir(as, FESPI_DIR_RX);
+	as_add_write_reg(as, FESPI_REG_CSMODE, FESPI_CSMODE_HOLD);
+	as_add_wip_wait(as);
+	as_add_write_reg(as, FESPI_REG_CSMODE, FESPI_CSMODE_AUTO);
+	as_add_set_dir(as, FESPI_DIR_TX);
+
+	return ERROR_OK;
+}
+
+static int steps_execute(struct algorithm_steps *as,
+		struct flash_bank *bank, struct working_area *algorithm_wa,
+		struct working_area *data_wa)
+{
+	struct target *target = bank->target;
+	struct fespi_flash_bank *fespi_info = bank->driver_priv;
+	uint32_t ctrl_base = fespi_info->ctrl_base;
+	int xlen = riscv_xlen(target);
+
+	struct reg_param reg_params[2];
+	init_reg_param(&reg_params[0], "a0", xlen, PARAM_OUT);
+	init_reg_param(&reg_params[1], "a1", xlen, PARAM_OUT);
+	buf_set_u64(reg_params[0].value, 0, xlen, ctrl_base);
+	buf_set_u64(reg_params[1].value, 0, xlen, data_wa->address);
+
+	int retval = ERROR_OK;
+	while (!as_empty(as)) {
+		keep_alive();
+		uint8_t *data_buf = malloc(data_wa->size);
+		unsigned bytes = as_compile(as, data_buf, data_wa->size);
+		retval = target_write_buffer(target, data_wa->address, bytes,
+				data_buf);
+		free(data_buf);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to write data to " TARGET_ADDR_FMT ": %d",
+					data_wa->address, retval);
+			goto exit;
+		}
+
+		retval = target_run_algorithm(target, 0, NULL, 2, reg_params,
+				algorithm_wa->address, algorithm_wa->address + 4,
+				10000, NULL);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to execute algorithm at " TARGET_ADDR_FMT ": %d",
+					algorithm_wa->address, retval);
+			goto exit;
+		}
+	}
+
+exit:
+	destroy_reg_param(&reg_params[1]);
+	destroy_reg_param(&reg_params[0]);
+	return retval;
+}
 
 static int fespi_write(struct flash_bank *bank, const uint8_t *buffer,
 		uint32_t offset, uint32_t count)
@@ -496,7 +740,6 @@ static int fespi_write(struct flash_bank *bank, const uint8_t *buffer,
 	struct target *target = bank->target;
 	struct fespi_flash_bank *fespi_info = bank->driver_priv;
 	uint32_t cur_count, page_size, page_offset;
-	int sector;
 	int retval = ERROR_OK;
 
 	LOG_DEBUG("bank->size=0x%x offset=0x%08" PRIx32 " count=0x%08" PRIx32,
@@ -513,14 +756,14 @@ static int fespi_write(struct flash_bank *bank, const uint8_t *buffer,
 	}
 
 	/* Check sector protection */
-	for (sector = 0; sector < bank->num_sectors; sector++) {
+	for (unsigned int sector = 0; sector < bank->num_sectors; sector++) {
 		/* Start offset in or before this sector? */
 		/* End offset in or behind this sector? */
 		if ((offset <
 					(bank->sectors[sector].offset + bank->sectors[sector].size))
 				&& ((offset + count - 1) >= bank->sectors[sector].offset)
 				&& bank->sectors[sector].is_protected) {
-			LOG_ERROR("Flash sector %d protected", sector);
+			LOG_ERROR("Flash sector %u protected", sector);
 			return ERROR_FAIL;
 		}
 	}
@@ -746,7 +989,7 @@ static int fespi_probe(struct flash_bank *bank)
 
 	if (fespi_info->probed)
 		free(bank->sectors);
-	fespi_info->probed = 0;
+	fespi_info->probed = false;
 
 	if (fespi_info->ctrl_base == 0) {
 		for (target_device = target_devices ; target_device->name ; ++target_device)
@@ -819,7 +1062,7 @@ static int fespi_probe(struct flash_bank *bank)
 		return ERROR_FAIL;
 	}
 
-	for (int sector = 0; sector < bank->num_sectors; sector++) {
+	for (unsigned int sector = 0; sector < bank->num_sectors; sector++) {
 		sectors[sector].offset = sector * sectorsize;
 		sectors[sector].size = sectorsize;
 		sectors[sector].is_erased = -1;
@@ -827,7 +1070,7 @@ static int fespi_probe(struct flash_bank *bank)
 	}
 
 	bank->sectors = sectors;
-	fespi_info->probed = 1;
+	fespi_info->probed = true;
 	return ERROR_OK;
 }
 

@@ -95,6 +95,11 @@ struct tcb {
 	uint8_t dat[512];
 };
 
+static struct {
+	uint32_t addr;
+	uint32_t prio;
+} g_tasklist[TASK_QUEUE_NUM];
+
 static char *task_state_str[] = {
 	"INVALID",
 	"PENDING",
@@ -192,7 +197,7 @@ static int rcmd_offset(const char *cmd, const char *name)
 static int nuttx_thread_packet(struct connection *connection,
 	char const *packet, int packet_size)
 {
-	char cmd[GDB_BUFFER_SIZE / 2 + 1] = "";	/* Extra byte for nul-termination */
+	char cmd[GDB_BUFFER_SIZE / 2 + 1] = ""; /* Extra byte for null-termination */
 
 	if (!strncmp(packet, "qRcmd", 5)) {
 		size_t len = unhexify((uint8_t *)cmd, packet + 6, sizeof(cmd));
@@ -410,3 +415,12 @@ static int nuttx_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
 
 	return 0;
 }
+
+struct rtos_type nuttx_rtos = {
+	.name = "nuttx",
+	.detect_rtos = nuttx_detect_rtos,
+	.create = nuttx_create,
+	.update_threads = nuttx_update_threads,
+	.get_thread_reg_list = nuttx_get_thread_reg_list,
+	.get_symbol_list_to_lookup = nuttx_get_symbol_list_to_lookup,
+};
