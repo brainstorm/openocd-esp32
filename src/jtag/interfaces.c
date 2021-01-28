@@ -111,6 +111,9 @@ extern struct jtag_interface remote_bitbang_interface;
 #if BUILD_HLADAPTER == 1
 extern struct jtag_interface hl_interface;
 #endif
+#if BUILD_DIRTYJTAG == 1
+extern struct adapter_driver dirtyjtag_adapter_driver;
+#endif
 #if BUILD_OSBDM == 1
 extern struct jtag_interface osbdm_interface;
 #endif

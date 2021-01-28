@@ -169,6 +169,9 @@ endif
 if BUILD_ESP_REMOTE
 DRIVERFILES += %D%/jtag_esp_remote.c
 endif
+if DIRTYJTAG
+DRIVERFILES += %D%/dirtyjtag.c
+endif
 
 DRIVERHEADERS = \
 	%D%/bitbang.h \
