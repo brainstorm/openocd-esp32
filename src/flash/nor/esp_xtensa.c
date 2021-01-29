@@ -168,7 +168,7 @@ int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_xtensa_info, uint32_
 	return ERROR_OK;
 }
 
-int esp_xtensa_protect(struct flash_bank *bank, int set, int first, int last)
+int esp_xtensa_protect(struct flash_bank *bank, int set, unsigned int first, unsigned int last)
 {
 	return ERROR_FAIL;
 }
@@ -217,7 +217,7 @@ int esp_xtensa_blank_check(struct flash_bank *bank)
 		LOG_ERROR("Failed to check erase flash (%d)!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
-		for (int i = 0; i < bank->num_sectors; i++)
+		for (unsigned int i = 0; i < bank->num_sectors; i++)
 			bank->sectors[i].is_erased = mp.value[i];
 	}
 	destroy_mem_param(&mp);
@@ -306,7 +306,7 @@ static int esp_xtensa_get_mappings(struct flash_bank *bank,
 	return ret;
 }
 
-int esp_xtensa_erase(struct flash_bank *bank, int first, int last)
+int esp_xtensa_erase(struct flash_bank *bank, unsigned int first, unsigned int last)
 {
 	struct esp_xtensa_flash_bank *esp_xtensa_info = bank->driver_priv;
 	struct xtensa_algo_run_data run;
@@ -789,7 +789,7 @@ int esp_xtensa_probe(struct flash_bank *bank)
 			LOG_ERROR("Failed to alloc mem for sectors!");
 			return ERROR_FAIL;
 		}
-		for (int i = 0; i < bank->num_sectors; i++) {
+		for (unsigned int i = 0; i < bank->num_sectors; i++) {
 			bank->sectors[i].offset = i*esp_xtensa_info->sec_sz;
 			bank->sectors[i].size = esp_xtensa_info->sec_sz;
 			bank->sectors[i].is_erased = -1;

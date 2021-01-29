@@ -50,5 +50,5 @@ const struct rtos_register_stacking rtos_embkernel_Cortex_M_stacking = {
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
 	rtos_embkernel_Cortex_M_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+	//NULL					/* Custom stack frame read function */
 };

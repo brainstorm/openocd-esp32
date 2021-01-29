@@ -23,7 +23,6 @@
 #include "helper/time_support.h"
 #include "helper/list.h"
 #include "riscv.h"
-#include "rtos/riscv_debug.h"
 #include "debug_defines.h"
 #include "rtos/rtos.h"
 #include "program.h"
@@ -428,9 +427,6 @@ static uint32_t dtmcontrol_scan(struct target *target, uint32_t out)
 	struct scan_field field;
 	uint8_t in_value[4];
 	uint8_t out_value[4] = { 0 };
-
-	if (bscan_tunnel_ir_width != 0)
-		return dtmcontrol_scan_via_bscan(target, out);
 
 	if (bscan_tunnel_ir_width != 0)
 		return dtmcontrol_scan_via_bscan(target, out);
@@ -1416,14 +1412,6 @@ static int register_read(struct target *target, uint64_t *value, uint32_t number
 		buf_set_u64(reg->value, 0, reg->size, *value);
 	}
 	return ERROR_OK;
-}
-
-static int is_fpu_reg(uint32_t gdb_regno)
-{
-	return (gdb_regno >= GDB_REGNO_FPR0 && gdb_regno <= GDB_REGNO_FPR31) ||
-		(gdb_regno == GDB_REGNO_CSR0 + CSR_FFLAGS) ||
-		(gdb_regno == GDB_REGNO_CSR0 + CSR_FRM) ||
-		(gdb_regno == GDB_REGNO_CSR0 + CSR_FCSR);
 }
 
 /** Actually read registers from the target right now. */
@@ -2862,10 +2850,6 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 					riscv_batch_free(batch);
 					goto error;
 				}
-				if (size > 4 && dmi_read(target, &dmi_data1, DMI_DATA1) != ERROR_OK) {
-					riscv_batch_free(batch);
-					goto error;
-				}
 
 				/* See how far we got, clobbering dmi_data0. */
 				if (increment == 0) {
@@ -3805,18 +3789,6 @@ static int riscv013_halt_go(struct target *target)
 		dm013_info_t *dm = get_dm(target);
 		if (!dm)
 			return ERROR_FAIL;
-		list_for_each_entry(entry, &dm->target_list, list) {
-			struct target *t = entry->target;
-			t->state = TARGET_HALTED;
-			if (t->debug_reason == DBG_REASON_NOTHALTED)
-				t->debug_reason = DBG_REASON_DBGRQ;
-		}
-	}
-	/* The "else" case is handled in halt_go(). */
-
-	if (use_hasel) {
-		target_list_t *entry;
-		dm013_info_t *dm = get_dm(target);
 		list_for_each_entry(entry, &dm->target_list, list) {
 			struct target *t = entry->target;
 			t->state = TARGET_HALTED;

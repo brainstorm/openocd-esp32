@@ -67,10 +67,10 @@ int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_xtensa_info, uint32_
 	bool (*is_irom_address)(target_addr_t addr),
 	bool (*is_drom_address)(target_addr_t addr),
 	const struct esp_xtensa_flasher_stub_config *(*get_stub)(struct flash_bank *bank));
-int esp_xtensa_protect(struct flash_bank *bank, int set, int first, int last);
+int esp_xtensa_protect(struct flash_bank *bank, int set, unsigned int first, unsigned int last);
 int esp_xtensa_protect_check(struct flash_bank *bank);
 int esp_xtensa_blank_check(struct flash_bank *bank);
-int esp_xtensa_erase(struct flash_bank *bank, int first, int last);
+int esp_xtensa_erase(struct flash_bank *bank, unsigned int first, unsigned int last);
 int esp_xtensa_write(struct flash_bank *bank, const uint8_t *buffer,
 	uint32_t offset, uint32_t count);
 int esp_xtensa_read(struct flash_bank *bank, uint8_t *buffer,

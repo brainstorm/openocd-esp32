@@ -1249,7 +1249,7 @@ static int kinetis_write_block(struct flash_bank *bank, const uint8_t *buffer,
 		uint32_t offset, uint32_t wcount)
 {
 	struct target *target = bank->target;
-	uint32_t buffer_size;
+	uint32_t buffer_size = 0;
 	struct working_area *write_algorithm;
 	struct working_area *source;
 	struct kinetis_flash_bank *k_bank = bank->driver_priv;

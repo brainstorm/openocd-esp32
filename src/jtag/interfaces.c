@@ -289,8 +289,10 @@ struct adapter_driver *adapter_drivers[] = {
 		&rshim_dap_adapter_driver,
 #endif
 #endif /* standard drivers */
+/*
 #if BUILD_ESP_REMOTE
 		&jtag_esp_remote_interface,
-#endif //BUILD_ESP_REMOTE
+#endif
+*/
 		NULL,
 	};

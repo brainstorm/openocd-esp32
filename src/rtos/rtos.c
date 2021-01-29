@@ -592,13 +592,13 @@ int rtos_generic_stack_read(struct target *target,
 	uint8_t *stack_data = malloc(stacking->stack_registers_size);
 	uint32_t address = stack_ptr;
 
-	if (stacking->custom_stack_read_fn) {
-		retval = stacking->custom_stack_read_fn(target, stack_ptr, stacking, stack_data);
-	} else {
+	// if (stacking->custom_stack_read_fn) {
+	// 	retval = stacking->custom_stack_read_fn(target, stack_ptr, stacking, stack_data);
+	// } else {
 		if (stacking->stack_growth_direction == 1)
 			address -= stacking->stack_registers_size;
 		retval = target_read_buffer(target, address, stacking->stack_registers_size, stack_data);
-	}
+	//}
 
 
 	if (retval != ERROR_OK) {

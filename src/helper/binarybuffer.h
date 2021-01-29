@@ -201,6 +201,7 @@ void *buf_set_buf(const void *src, unsigned src_start,
 
 int str_to_buf(const char *str, unsigned len,
 		void *bin_buf, unsigned buf_size, unsigned radix);
+char *buf_to_str(const void *buf, unsigned size, unsigned radix);
 char *buf_to_hex_str(const void *buf, unsigned size);
 
 /* read a uint32_t from a buffer in target memory endianness */

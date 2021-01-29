@@ -119,11 +119,6 @@ static char *task_state_str[] = {
 #endif	/* CONFIG_PAGING */
 };
 
-struct {
-	uint32_t addr;
-	uint32_t prio;
-} g_tasklist[TASK_QUEUE_NUM];
-
 static int pid_offset = PID;
 static int state_offset = STATE;
 static int name_offset = NAME;
@@ -143,15 +138,6 @@ static const struct nuttx_params nuttx_params_list[] = {
 		.target_name      = "esp32",
 		.select_stackinfo = esp32_select_stackinfo,
 	},
-};
-
-struct rtos_type nuttx_rtos = {
-	.name = "NuttX",
-	.detect_rtos = nuttx_detect_rtos,
-	.create = nuttx_create,
-	.update_threads = nuttx_update_threads,
-	.get_thread_reg_list = nuttx_get_thread_reg_list,
-	.get_symbol_list_to_lookup = nuttx_get_symbol_list_to_lookup,
 };
 
 static bool cortexm_hasfpu(struct target *target)
@@ -417,7 +403,7 @@ static int nuttx_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
 }
 
 struct rtos_type nuttx_rtos = {
-	.name = "nuttx",
+	.name = "NuttX",
 	.detect_rtos = nuttx_detect_rtos,
 	.create = nuttx_create,
 	.update_threads = nuttx_update_threads,

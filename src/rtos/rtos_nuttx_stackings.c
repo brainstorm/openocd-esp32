@@ -29,9 +29,9 @@
 #include "target/armv7m.h"
 #include "target/esp32.h"
 
-static int nuttx_esp_xtensa_stack_read(struct target *target,
-	int64_t stack_ptr, const struct rtos_register_stacking *stacking,
-	uint8_t *stack_data);
+// static int nuttx_esp_xtensa_stack_read(struct target *target,
+// 	int64_t stack_ptr, const struct rtos_register_stacking *stacking,
+// 	uint8_t *stack_data);
 
 /* see arch/arm/include/armv7-m/irq_cmnvector.h */
 static const struct stack_register_offset nuttx_stack_offsets_cortex_m[] = {
@@ -195,7 +195,7 @@ const struct rtos_register_stacking nuttx_stacking_cortex_m = {
 	17,					/* num_output_registers */
 	0,					/* stack_alignment */
 	nuttx_stack_offsets_cortex_m,		/* register_offsets */
-	NULL
+	//NULL
 };
 
 const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
@@ -204,7 +204,7 @@ const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
 	17,					/* num_output_registers */
 	0,					/* stack_alignment */
 	nuttx_stack_offsets_cortex_m_fpu,	/* register_offsets */
-	NULL
+	//NULL
 };
 
 const struct rtos_register_stacking nuttx_esp32_stacking = {
@@ -213,21 +213,21 @@ const struct rtos_register_stacking nuttx_esp32_stacking = {
 	ESP32_NUM_REGS_G_COMMAND,					/* num_output_registers */
 	rtos_generic_stack_align8,		/* stack_alignment */
 	nuttx_stack_offsets_esp32,			/* register_offsets */
-	nuttx_esp_xtensa_stack_read		/* Custom stack frame read function */
+	//nuttx_esp_xtensa_stack_read		/* Custom stack frame read function */
 };
 
-static int nuttx_esp_xtensa_stack_read(struct target *target,
-	int64_t stack_ptr, const struct rtos_register_stacking *stacking,
-	uint8_t *stack_data)
-{
-	int retval;
+// static int nuttx_esp_xtensa_stack_read(struct target *target,
+// 	int64_t stack_ptr, const struct rtos_register_stacking *stacking,
+// 	uint8_t *stack_data)
+// {
+// 	int retval;
 
-	retval = target_read_buffer(target, stack_ptr, stacking->stack_registers_size,
-			stack_data);
-	if (retval != ERROR_OK)
-		return retval;
+// 	retval = target_read_buffer(target, stack_ptr, stacking->stack_registers_size,
+// 			stack_data);
+// 	if (retval != ERROR_OK)
+// 		return retval;
 
-	stack_data[4] &= ~0x10;	/* Clear exception bit in PS */
+// 	stack_data[4] &= ~0x10;	/* Clear exception bit in PS */
 
-	return retval;
-}
+// 	return retval;
+// }

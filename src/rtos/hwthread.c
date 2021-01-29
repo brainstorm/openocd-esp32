@@ -37,7 +37,7 @@ static int hwthread_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 		struct rtos_reg **reg_list, int *num_regs);
 static int hwthread_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[]);
 static int hwthread_smp_init(struct target *target);
-int hwthread_set_reg(struct rtos *rtos, uint32_t reg_num, uint8_t *reg_value);
+static int hwthread_set_reg(struct rtos *rtos, uint32_t reg_num, uint8_t *reg_value);
 bool hwthread_needs_fake_step(struct target *target, int64_t thread_id);
 
 #define HW_THREAD_NAME_STR_SIZE (32)

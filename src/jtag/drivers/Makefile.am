@@ -110,9 +110,9 @@ endif
 if PRESTO
 DRIVERFILES += %D%/presto.c
 endif
-if ESP_USB_JTAG
-DRIVERFILES += %D%/esp_usb_jtag.c
-endif
+#if ESP_USB_JTAG
+#DRIVERFILES += %D%/esp_usb_jtag.c
+#endif
 if USBPROG
 DRIVERFILES += %D%/usbprog.c
 endif
@@ -155,12 +155,12 @@ endif
 if RSHIM
 DRIVERFILES += %D%/rshim.c
 endif
-if OSBDM
-DRIVERFILES += %D%/osbdm.c
-endif
-if OPENDOUS
-DRIVERFILES += %D%/opendous.c
-endif
+#if OSBDM
+#DRIVERFILES += %D%/osbdm.c
+#endif
+#if OPENDOUS
+#DRIVERFILES += %D%/opendous.c
+#endif
 if SYSFSGPIO
 DRIVERFILES += %D%/sysfsgpio.c
 endif
@@ -177,12 +177,12 @@ if CMSIS_DAP_HID
 DRIVERFILES += %D%/cmsis_dap_usb_hid.c
 DRIVERFILES += %D%/cmsis_dap.c
 endif
-if CMSIS_DAP_USB
-DRIVERFILES += %D%/cmsis_dap_usb_bulk.c
-if !CMSIS_DAP_HID
-DRIVERFILES += %D%/cmsis_dap.c
-endif
-endif
+#if CMSIS_DAP_USB
+#DRIVERFILES += %D%/cmsis_dap_usb_bulk.c
+#if !CMSIS_DAP_HID
+#DRIVERFILES += %D%/cmsis_dap.c
+#endif
+#endif
 if IMX_GPIO
 DRIVERFILES += %D%/imx_gpio.c
 endif

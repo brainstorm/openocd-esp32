@@ -255,8 +255,8 @@ const struct rtos_register_stacking rtos_standard_Cortex_M3_stacking = {
 	-1,						/* stack_growth_direction */
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	rtos_standard_Cortex_M3_stack_align,	/* stack_alignment */
-	rtos_standard_Cortex_M3_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+	rtos_standard_Cortex_M3_stack_offsets	/* register_offsets */
+	//NULL					/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_standard_Cortex_M4F_stacking = {
@@ -264,8 +264,8 @@ const struct rtos_register_stacking rtos_standard_Cortex_M4F_stacking = {
 	-1,						/* stack_growth_direction */
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	rtos_standard_Cortex_M4F_stack_align,	/* stack_alignment */
-	rtos_standard_Cortex_M4F_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+	rtos_standard_Cortex_M4F_stack_offsets	/* register_offsets */
+	//NULL					/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_standard_Cortex_M4F_FPU_stacking = {
@@ -273,8 +273,8 @@ const struct rtos_register_stacking rtos_standard_Cortex_M4F_FPU_stacking = {
 	-1,						/* stack_growth_direction */
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	rtos_standard_Cortex_M4F_FPU_stack_align,	/* stack_alignment */
-	rtos_standard_Cortex_M4F_FPU_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+	rtos_standard_Cortex_M4F_FPU_stack_offsets	/* register_offsets */
+	//NULL					/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_standard_Cortex_R4_stacking = {
@@ -282,8 +282,8 @@ const struct rtos_register_stacking rtos_standard_Cortex_R4_stacking = {
 	-1,					/* stack_growth_direction */
 	26,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_standard_Cortex_R4_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+	rtos_standard_Cortex_R4_stack_offsets	/* register_offsets */
+	//NULL					/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_standard_NDS32_N1068_stacking = {
@@ -291,7 +291,7 @@ const struct rtos_register_stacking rtos_standard_NDS32_N1068_stacking = {
 	-1,					/* stack_growth_direction */
 	32,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_standard_NDS32_N1068_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+	rtos_standard_NDS32_N1068_stack_offsets	/* register_offsets */
+	//NULL					/* Custom stack frame read function */
 };
 

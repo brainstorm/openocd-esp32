@@ -117,7 +117,7 @@ static const struct rtos_register_stacking rtos_threadx_arm926ejs_stacking[] = {
 	17,									/* num_output_registers */
 	NULL,								/* stack_alignment */
 	rtos_threadx_arm926ejs_stack_offsets_solicited,	/* register_offsets */
-	NULL,					/* fn to pick stacking_info */
+	//NULL,					/* fn to pick stacking_info */
 },
 {
 	ARM926EJS_REGISTERS_SIZE_INTERRUPT,	/* stack_registers_size */
@@ -125,7 +125,7 @@ static const struct rtos_register_stacking rtos_threadx_arm926ejs_stacking[] = {
 	17,									/* num_output_registers */
 	NULL,								/* stack_alignment */
 	rtos_threadx_arm926ejs_stack_offsets_interrupt,	/* register_offsets */
-	NULL,					/* fn to pick stacking_info */
+	//NULL,					/* fn to pick stacking_info */
 },
 };
 

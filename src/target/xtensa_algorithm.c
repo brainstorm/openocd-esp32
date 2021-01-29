@@ -107,7 +107,7 @@ static int xtensa_stub_load(struct target *target,
 			algo_image->image.start_address,
 			algo_image->image.num_sections);
 		stub->entry = algo_image->image.start_address;
-		for (int i = 0; i < algo_image->image.num_sections; i++) {
+		for (unsigned int i = 0; i < algo_image->image.num_sections; i++) {
 			struct imagesection *section = &algo_image->image.sections[i];
 			LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %x",
 				section->base_address,

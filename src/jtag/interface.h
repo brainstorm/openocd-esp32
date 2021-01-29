@@ -193,17 +193,132 @@ static inline tap_state_t jtag_debug_state_machine(const void *tms_buf,
  * debugging interface.
  */
 struct jtag_interface {
+	/** The name of the JTAG interface driver. */
+	const char * const name;
+
 	/**
 	 * Bit vector listing capabilities exposed by this driver.
 	 */
 	unsigned supported;
 #define DEBUG_CAP_TMS_SEQ	(1 << 0)
 
+	/** transports supported in C code (NULL terminated vector) */
+	const char * const *transports;
+
+	const struct swd_driver *swd;
+
 	/**
 	 * Execute queued commands.
 	 * @returns ERROR_OK on success, or an error code on failure.
 	 */
 	int (*execute_queue)(void);
+
+	/**
+	 * Set the interface speed.
+	 * @param speed The new interface speed setting.
+	 * @returns ERROR_OK on success, or an error code on failure.
+	 */
+	int (*speed)(int speed);
+
+	/**
+	 * The interface driver may register additional commands to expose
+	 * additional features not covered by the standard command set.
+	 */
+	const struct command_registration *commands;
+
+	/**
+	 * Interface driver must initialize any resources and connect to a
+	 * JTAG device.
+	 *
+	 * quit() is invoked if and only if init() succeeds. quit() is always
+	 * invoked if init() succeeds. Same as malloc() + free(). Always
+	 * invoke free() if malloc() succeeds and do not invoke free()
+	 * otherwise.
+	 *
+	 * @returns ERROR_OK on success, or an error code on failure.
+	 */
+	int (*init)(void);
+
+	/**
+	 * Interface driver must tear down all resources and disconnect from
+	 * the JTAG device.
+	 *
+	 * @returns ERROR_OK on success, or an error code on failure.
+	 */
+	int (*quit)(void);
+
+	/**
+	 * Returns JTAG maxium speed for KHz. 0 = RTCK. The function returns
+	 *  a failure if it can't support the KHz/RTCK.
+	 *
+	 *  WARNING!!!! if RTCK is *slow* then think carefully about
+	 *  whether you actually want to support this in the driver.
+	 *  Many target scripts are written to handle the absence of RTCK
+	 *  and use a fallback kHz TCK.
+	 * @returns ERROR_OK on success, or an error code on failure.
+	 */
+	int (*khz)(int khz, int *jtag_speed);
+
+	/**
+	 * Calculate the clock frequency (in KHz) for the given @a speed.
+	 * @param speed The desired interface speed setting.
+	 * @param khz On return, contains the speed in KHz (0 for RTCK).
+	 * @returns ERROR_OK on success, or an error code if the
+	 * interface cannot support the specified speed (KHz or RTCK).
+	 */
+	int (*speed_div)(int speed, int *khz);
+
+	/**
+	 * Read and clear the power dropout flag. Note that a power dropout
+	 * can be transitionary, easily much less than a ms.
+	 *
+	 * To find out if the power is *currently* on, one must invoke this
+	 * method twice.  Once to clear the power dropout flag and a second
+	 * time to read the current state.  The default implementation
+	 * never reports power dropouts.
+	 *
+	 * @returns ERROR_OK on success, or an error code on failure.
+	 */
+	int (*power_dropout)(int *power_dropout);
+
+	/**
+	 * Read and clear the srst asserted detection flag.
+	 *
+	 * Like power_dropout this does *not* read the current
+	 * state.  SRST assertion is transitionary and may be much
+	 * less than 1ms, so the interface driver must watch for these
+	 * events until this routine is called.
+	 *
+	 * @param srst_asserted On return, indicates whether SRST has
+	 * been asserted.
+	 * @returns ERROR_OK on success, or an error code on failure.
+	 */
+	int (*srst_asserted)(int *srst_asserted);
+
+	/**
+	 * Configure trace parameters for the adapter
+	 *
+	 * @param enabled Whether to enable trace
+	 * @param pin_protocol Configured pin protocol
+	 * @param port_size Trace port width for sync mode
+	 * @param trace_freq A pointer to the configured trace
+	 * frequency; if it points to 0, the adapter driver must write
+	 * its maximum supported rate there
+	 * @returns ERROR_OK on success, an error code on failure.
+	 */
+	int (*config_trace)(bool enabled, enum tpiu_pin_protocol pin_protocol,
+			    uint32_t port_size, unsigned int *trace_freq);
+
+	/**
+	 * Poll for new trace data
+	 *
+	 * @param buf A pointer to buffer to store received data
+	 * @param size A pointer to buffer size; must be filled with
+	 * the actual amount of bytes written
+	 *
+	 * @returns ERROR_OK on success, an error code on failure.
+	 */
+	int (*poll_trace)(uint8_t *buf, size_t *size);
 };
 
 /**

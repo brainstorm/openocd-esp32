@@ -29,8 +29,8 @@
 #include "target/esp32s2.h"
 #include "target/riscv/riscv.h"
 
-static int rtos_freertos_esp_xtensa_stack_read_involuntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);
-static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);
+// static int rtos_freertos_esp_xtensa_stack_read_involuntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);
+// static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);
 
 /*
  The XTensa FreeRTOS implementation has *two* types of stack frames; one for
@@ -414,7 +414,7 @@ const struct rtos_register_stacking rtos_freertos_esp32_stacking = {
 	ESP32_NUM_REGS_G_COMMAND,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
 	rtos_freertos_esp32_stack_offsets,		/* register_offsets */
-	rtos_freertos_esp_xtensa_stack_read_involuntary		/* Custom stack frame read function */
+	//rtos_freertos_esp_xtensa_stack_read_involuntary		/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_freertos_esp32_s2_stacking = {
@@ -423,7 +423,7 @@ const struct rtos_register_stacking rtos_freertos_esp32_s2_stacking = {
 	ESP32_S2_NUM_REGS_G_COMMAND,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
 	rtos_freertos_esp32_s2_stack_offsets,		/* register_offsets */
-	rtos_freertos_esp_xtensa_stack_read_involuntary		/* Custom stack frame read function */
+	//rtos_freertos_esp_xtensa_stack_read_involuntary		/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_freertos_voluntary_esp32_stacking = {
@@ -432,7 +432,7 @@ const struct rtos_register_stacking rtos_freertos_voluntary_esp32_stacking = {
 	ESP32_NUM_REGS_G_COMMAND,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
 	rtos_freertos_esp32_voluntary_stack_offsets,	/* register_offsets */
-	rtos_freertos_esp_xtensa_stack_read_voluntary		/* Custom stack frame read function */
+	//rtos_freertos_esp_xtensa_stack_read_voluntary		/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_freertos_voluntary_esp32_s2_stacking = {
@@ -441,7 +441,7 @@ const struct rtos_register_stacking rtos_freertos_voluntary_esp32_s2_stacking = 
 	ESP32_S2_NUM_REGS_G_COMMAND,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
 	rtos_freertos_esp32_s2_voluntary_stack_offsets,	/* register_offsets */
-	rtos_freertos_esp_xtensa_stack_read_voluntary		/* Custom stack frame read function */
+	//rtos_freertos_esp_xtensa_stack_read_voluntary		/* Custom stack frame read function */
 };
 
 static const struct stack_register_offset rtos_freertos_riscv_stack_offsets[] = {
@@ -486,7 +486,7 @@ const struct rtos_register_stacking rtos_freertos_riscv_stacking = {
 	33,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
 	rtos_freertos_riscv_stack_offsets,		/* register_offsets */
-	NULL		/* Custom stack frame read function */
+	//NULL		/* Custom stack frame read function */
 };
 
 /*
@@ -542,16 +542,16 @@ const struct rtos_register_stacking *rtos_freertos_esp32_s2_pick_stacking_info(s
  Xtensa stacks are saved with the exception bit set, while the call structure is more like a normal
  windowed call. We get rid of the exception bit so gdb can parse it into a working backtrace.
 */
-static int rtos_freertos_esp_xtensa_stack_read_involuntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data)
-{
-	int retval;
-	retval = target_read_buffer(target, stack_ptr, stacking->stack_registers_size, stack_data);
-	if (retval!=ERROR_OK) return retval;
+// static int rtos_freertos_esp_xtensa_stack_read_involuntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data)
+// {
+// 	int retval;
+// 	retval = target_read_buffer(target, stack_ptr, stacking->stack_registers_size, stack_data);
+// 	if (retval!=ERROR_OK) return retval;
 
-	stack_data[8]&=~0x10; //clear exception bit in PS
+// 	stack_data[8]&=~0x10; //clear exception bit in PS
 
-	return retval;
-}
+// 	return retval;
+// }
 
 /*
  Voluntary stacks also have the exception bit set, but they spill the registers on entry and only save the
@@ -588,36 +588,36 @@ static int rtos_freertos_esp_xtensa_stack_read_involuntary(struct target *target
  If we're called using CALL8/CALL12, register A4-A7 and in the case of CALL12 A8-A11 are stored in the
  *callers* stack frame. We need some extra logic to dump them in the stack_data.
 */
-static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data)
-{
-	int retval;
-	int callno;
-	int i;
-	uint32_t prevsp;
-	uint32_t xt_sol_pc_reg;
+// static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data)
+// {
+// 	int retval;
+// 	int callno;
+// 	int i;
+// 	uint32_t prevsp;
+// 	uint32_t xt_sol_pc_reg;
 
-	retval = target_read_buffer(target, stack_ptr-0x10, 4*8, stack_data);
-	if (retval!=ERROR_OK) return retval;
+// 	retval = target_read_buffer(target, stack_ptr-0x10, 4*8, stack_data);
+// 	if (retval!=ERROR_OK) return retval;
 
-	stack_data[0x18]&=~0x10; //clear exception bit in PS
-	xt_sol_pc_reg = le_to_h_u32(stack_data + 5 * sizeof(uint32_t));
-	callno = xt_sol_pc_reg >> 30;
-	xt_sol_pc_reg = (xt_sol_pc_reg & 0x3FFFFFFF) | 0x40000000; //Hardcoded for now.
-	h_u32_to_le(stack_data + 5 * sizeof(uint32_t), xt_sol_pc_reg);
-	prevsp = le_to_h_u32(stack_data + 1 * sizeof(uint32_t));
+// 	stack_data[0x18]&=~0x10; //clear exception bit in PS
+// 	xt_sol_pc_reg = le_to_h_u32(stack_data + 5 * sizeof(uint32_t));
+// 	callno = xt_sol_pc_reg >> 30;
+// 	xt_sol_pc_reg = (xt_sol_pc_reg & 0x3FFFFFFF) | 0x40000000; //Hardcoded for now.
+// 	h_u32_to_le(stack_data + 5 * sizeof(uint32_t), xt_sol_pc_reg);
+// 	prevsp = le_to_h_u32(stack_data + 1 * sizeof(uint32_t));
 
-	//Fill unknown regs with dummy value
-	for (i = 12; i < 20; i++) {
-		h_u32_to_le(stack_data + i * sizeof(uint32_t), 0xdeadbeef);
-	}
+// 	//Fill unknown regs with dummy value
+// 	for (i = 12; i < 20; i++) {
+// 		h_u32_to_le(stack_data + i * sizeof(uint32_t), 0xdeadbeef);
+// 	}
 
-	if (callno == 2) { //call8
-		retval = target_read_buffer(target, prevsp-32, 4*4, stack_data+0x30);
-	} else if (callno == 3) { //call12
-		retval = target_read_buffer(target, prevsp-48, 8*4, stack_data+0x30);
-	}
-	return retval;
-}
+// 	if (callno == 2) { //call8
+// 		retval = target_read_buffer(target, prevsp-32, 4*4, stack_data+0x30);
+// 	} else if (callno == 3) { //call12
+// 		retval = target_read_buffer(target, prevsp-48, 8*4, stack_data+0x30);
+// 	}
+// 	return retval;
+// }
 
 const struct rtos_register_stacking *rtos_freertos_riscv_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr)
 {

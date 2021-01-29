@@ -212,11 +212,6 @@ bool riscv_ebreaku = true;
 
 bool riscv_enable_virtual;
 
-bool riscv_enable_virtual;
-
-/* If the target doesn't implement MISA register, use this value */
-int riscv_default_misa = 0x100;
-
 typedef struct {
 	uint16_t low, high;
 } range_t;
@@ -377,10 +372,6 @@ static uint32_t dtmcontrol_scan(struct target *target, uint32_t out)
 	struct scan_field field;
 	uint8_t in_value[4];
 	uint8_t out_value[4] = { 0 };
-
-	if (bscan_tunnel_ir_width != 0)
-		return dtmcontrol_scan_via_bscan(target, out);
-
 
 	if (bscan_tunnel_ir_width != 0)
 		return dtmcontrol_scan_via_bscan(target, out);
@@ -1855,7 +1846,8 @@ static int riscv_run_algorithm(struct target *target, int num_mem_params,
 		}
 	}
 
-	target_free_working_area(target, crc_algorithm);
+	return ERROR_OK;
+}
 
 static int riscv_checksum_memory(struct target *target,
 		target_addr_t address, uint32_t count,
@@ -1878,7 +1870,7 @@ static enum riscv_poll_hart riscv_poll_hart(struct target *target, int hartid)
 	if (riscv_set_current_hartid(target, hartid) != ERROR_OK)
 		return RPH_ERROR;
 
-	LOG_DEBUG_IO("polling hart %d, target->state=%d", hartid, target->state);
+	LOG_DEBUG("polling hart %d, target->state=%d", hartid, target->state);
 
 	/* If OpenOCD thinks we're running but this hart is halted then it's time
 	 * to raise an event. */
@@ -1926,7 +1918,7 @@ int set_debug_reason(struct target *target, enum riscv_halt_reason halt_reason)
 /*** OpenOCD Interface ***/
 int riscv_openocd_poll(struct target *target)
 {
-	LOG_DEBUG_IO("polling all harts");
+	LOG_DEBUG("polling all harts");
 	int halted_hart = -1;
 	if (riscv_rtos_enabled(target)) {
 		/* Check every hart for an event. */
@@ -2020,9 +2012,6 @@ int riscv_openocd_poll(struct target *target)
 			case RPH_ERROR:
 				return ERROR_FAIL;
 			}
-
-			LOG_DEBUG("Halt other targets in this SMP group.");
-			riscv_halt(target);
 		}
 
 		LOG_DEBUG("should_remain_halted=%d, should_resume=%d",
@@ -2582,15 +2571,6 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 				"When off (default), all memory accessses are performed on physical memory."
 	},
 	{
-		.name = "set_enable_virtual",
-		.handler = riscv_set_enable_virtual,
-		.mode = COMMAND_ANY,
-		.usage = "riscv set_enable_virtual on|off",
-		.help = "When on, memory accesses are performed on physical or virtual "
-				"memory depending on the current system configuration. "
-				"When off, all memory accessses are performed on physical memory."
-	},
-	{
 		.name = "expose_csrs",
 		.handler = riscv_set_expose_csrs,
 		.mode = COMMAND_ANY,
@@ -2756,9 +2736,6 @@ const struct command_registration riscv_command_handlers[] = {
 
 static unsigned riscv_xlen_nonconst(struct target *target)
 {
-	RISCV_INFO(r);
-	if (r->data_bits)
-		return r->data_bits(target);
 	return riscv_xlen(target);
 }
 
@@ -2816,7 +2793,6 @@ void riscv_info_init(struct target *target, riscv_info_t *r)
 	r->dtm_version = 1;
 	r->registers_initialized = false;
 	r->current_hartid = target->coreid;
-	r->default_misa = riscv_default_misa;
 
 	memset(r->trigger_unique_id, 0xff, sizeof(r->trigger_unique_id));
 
@@ -2925,7 +2901,7 @@ int riscv_xlen_of_hart(const struct target *target, int hartid)
 
 bool riscv_rtos_enabled(const struct target *target)
 {
-	return target->rtos && target->rtos->type == &riscv_rtos;
+	return false;
 }
 
 int riscv_set_current_hartid(struct target *target, int hartid)
@@ -2937,7 +2913,7 @@ int riscv_set_current_hartid(struct target *target, int hartid)
 	int previous_hartid = riscv_current_hartid(target);
 	r->current_hartid = hartid;
 	assert(riscv_hart_enabled(target, hartid));
-	LOG_DEBUG_IO("setting hartid to %d, was %d", hartid, previous_hartid);
+	LOG_DEBUG("setting hartid to %d, was %d", hartid, previous_hartid);
 	if (r->select_current_hart(target) != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -3103,13 +3079,6 @@ int riscv_get_register_on_hart(struct target *target, riscv_reg_t *value,
 		*value = buf_get_u64(reg->value, 0, reg->size);
 		LOG_DEBUG("{%d} %s: %" PRIx64 " (cached)", hartid,
 				  gdb_regno_name(regid), *value);
-		return ERROR_OK;
-	}
-
-	/* TODO: Hack to deal with gdb that thinks these registers still exist. */
-	if (regid > GDB_REGNO_XPR15 && regid <= GDB_REGNO_XPR31 &&
-			riscv_supports_extension(target, hartid, 'E')) {
-		*value = 0;
 		return ERROR_OK;
 	}
 
@@ -3733,8 +3702,6 @@ int riscv_init_registers(struct target *target)
 	if (!shared_reg_info)
 		return ERROR_FAIL;
 	shared_reg_info->target = target;
-
-	int hartid = riscv_current_hartid(target);
 
 	/* When gdb requests register N, gdb_get_register_packet() assumes that this
 	 * is register at index N in reg_list. So if there are certain registers
